@@ -4,14 +4,13 @@ import {
     LEFT_PLAYER_X, 
     RIGHT_PLAYER_X, 
     TIME_EVENT_COUNTDOWN, 
-    BALL_SPEED_FACTOR,
-    BALL_MAX_SCALE, 
-    BALL_MIN_SCALE,
+
     PLAYER_MAX_SCALE,
     PLAYER_MIN_SCALE,
     BIGGER_FACTOR,
     SMALLER_FACTOR
 } from "../constants/game";
+import { Ball } from "../entities";
 
 export class GameScene extends Phaser.Scene {
     private leftPlayer!: Phaser.Physics.Arcade.Image;
@@ -28,7 +27,7 @@ export class GameScene extends Phaser.Scene {
             shift: Phaser.Input.Keyboard.Key;
         };
     };
-    private ball!: Phaser.Physics.Arcade.Image;
+    private ball!: Ball;
     private leftPlayerScore: number = 0;
     private rightPlayerScore: number = 0;
     private scorePanel!: Phaser.GameObjects.Text;
@@ -57,11 +56,7 @@ export class GameScene extends Phaser.Scene {
         this.add.image(0,0,'background').setOrigin(0, 0);
         this.leftPlayer = this.physics.add.image(LEFT_PLAYER_X, this.scale.height / 2, 'leftPlayer').setScale(0.5);
         this.rightPlayer = this.physics.add.image(RIGHT_PLAYER_X, this.scale.height / 2, 'rightPlayer').setScale(0.5);
-        this.ball = this.physics.add.image(this.scale.width / 2, this.scale.height / 2, 'ball');
-
-        this.ball.setVelocity(0);
-        this.ball.setBounce(1);  
-        this.ball.setCollideWorldBounds(true);
+        this.ball = new Ball(this, this.scale.width / 2, this.scale.height / 2);
 
         this.physics.world.setBoundsCollision(
             false,
@@ -147,7 +142,12 @@ export class GameScene extends Phaser.Scene {
 
     update() {
         if (!this.gameStart) {
-            this.serveBall();
+            if (Phaser.Input.Keyboard.JustDown(this.controls.leftPlayer.space) || Phaser.Input.Keyboard.JustDown(this.controls.rightPlayer.shift)) {
+                this.ball.serveBall();
+                this.gameStart = true;
+                this.eventTimer.paused = false;
+                this.powerUpTimer.paused = false;
+            }
         } 
         this.eventText.setText('Next Event: ' + this.countDown.toString(TIME_EVENT_COUNTDOWN) + '\n' + this.eventName);
 
@@ -161,17 +161,18 @@ export class GameScene extends Phaser.Scene {
             this.controls.rightPlayer
         );
 
-        if (this.ball.x > this.scale.width) {
+        const scorer = this.ball.getScoredSide();
+        if (scorer === 'left') {
             this.leftPlayerScore++;
             this.resetGame();
-        } else if (this.ball.x + this.ball.width < 0) {
+        } else if (scorer === 'right') {
             this.rightPlayerScore++
             this.resetGame();
         }
     }
 
     private resetGame() {
-        this.resetBall();
+        this.ball.resetBall();
         this.resetPlayer();
         this.scorePanel.setText(`P1: ${this.leftPlayerScore}  P2: ${this.rightPlayerScore} `);
         this.defaultSpeed();
@@ -213,23 +214,10 @@ export class GameScene extends Phaser.Scene {
                 loop: false,
                 volume: 0.3
             });
+            const direction = player === this.leftPlayer ? 1 : -1;
+            this.ball.reboundFromPlayer(player, direction);
+    };
 
-            this.handleReboundBallFromPlayer(ball, player);
-        };
-
-    private handleReboundBallFromPlayer(ball: Phaser.Physics.Arcade.Image, player: Phaser.Physics.Arcade.Image) {
-        const hitboxOffset = Phaser.Math.Clamp((ball.y - player.y) / (player.displayHeight / 2), -1, 1);
-        const maxAngle = Phaser.Math.DegToRad(60);
-        const jitter = Phaser.Math.DegToRad(Phaser.Math.Between(-5, 5));
-        const angle = hitboxOffset * maxAngle + jitter;
-        const speed = this.ball.body!.velocity.length() * BALL_SPEED_FACTOR;
-        const direction = player === this.leftPlayer ? 1 : -1;
-
-        ball.setVelocity(
-            Math.cos(angle) * speed * direction,
-            Math.sin(angle) * speed
-        )
-    }
 
     private handlePowerUpBallCollission: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback =
         (_powerUp, ballObj) => {
@@ -246,9 +234,9 @@ export class GameScene extends Phaser.Scene {
                     this.applyScale(this.penultimateContact, SMALLER_FACTOR, PLAYER_MIN_SCALE, PLAYER_MAX_SCALE);
                 }
             } else if (powerUp.texture.key === 'ballBigger' ) {
-                this.applyScale(ball, BIGGER_FACTOR, BALL_MIN_SCALE, BALL_MAX_SCALE);
+                this.ball.scaleBy(BIGGER_FACTOR);
             } else if (powerUp.texture.key === 'ballSmaller') {
-                this.applyScale(ball, SMALLER_FACTOR, BALL_MIN_SCALE, BALL_MAX_SCALE);
+                this.ball.scaleBy(SMALLER_FACTOR);
             }
 
             powerUp.destroy();
@@ -257,12 +245,6 @@ export class GameScene extends Phaser.Scene {
     private applyScale(target: Phaser.GameObjects.Image, factor: number, min: number, max: number) {
         const nextScale = Phaser.Math.Clamp(target.scaleY * factor, min, max);
         target.setScale(nextScale);
-    }
-
-    private resetBall() {
-        this.ball.setVelocity(0);
-        this.ball.setPosition(this.scale.width / 2, this.scale.height / 2);
-        this.ball.setAcceleration(0, 0);
     }
 
     private resetPlayer() {
@@ -274,7 +256,7 @@ export class GameScene extends Phaser.Scene {
         const randomNumber = Phaser.Math.Between(1, 4);
         switch (randomNumber) {
             case 1:
-                this.handleBallSpeed(1.2);
+                this.ball.changeSpeed(1.2);
                 this.eventName = "Fast Ball";
                 break;
             case 2:
@@ -303,11 +285,6 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
-    private handleBallSpeed(factor: number) {
-        const velocity = this.ball.body!.velocity;
-        this.ball.setVelocity(velocity.x * factor, velocity.y * factor )
-    }
-
     private handlePlayerSpeed(factor: number) {
         const leftPlayerVelocity = this.leftPlayer.body!.velocity;
         const rightPlayerVelocity = this.rightPlayer.body!.velocity;
@@ -318,7 +295,7 @@ export class GameScene extends Phaser.Scene {
     private defaultSpeed() {
         this.lowerPlayerSpeed = false;
         this.fasterPlayerSpeed = false;
-        this.handleBallSpeed(1);
+        this.ball.changeSpeed(1);
         this.handlePlayerSpeed(1)
     }
 
@@ -364,20 +341,6 @@ export class GameScene extends Phaser.Scene {
                 this.ballSmaller = this.physics.add.image(Phaser.Math.Between(200, 800), Phaser.Math.Between(100, 400), 'ballSmaller').setScale(0.5);
                 this.physics.add.overlap(this.ballSmaller, this.ball, this.handlePowerUpBallCollission, undefined, this);
                 break;
-        }
-    }
-
-    private serveBall() {
-        if (Phaser.Input.Keyboard.JustDown(this.controls.leftPlayer.space) || Phaser.Input.Keyboard.JustDown(this.controls.rightPlayer.shift)) {
-            const directionX = Phaser.Math.RND.sign();
-            const directionY = Phaser.Math.RND.sign();
-            const speedX = Phaser.Math.Between(400, 700) * directionX;
-            const speedY = Phaser.Math.Between(100, 350) * directionY;
-
-            this.ball.setVelocity(speedX, speedY);
-            this.gameStart = true;
-            this.eventTimer.paused = false;
-            this.powerUpTimer.paused = false;
         }
     }
 }
