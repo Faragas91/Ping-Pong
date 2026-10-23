@@ -53,19 +53,6 @@ export class GameScene extends Phaser.Scene {
         super('GameScene')
     }
 
-    preload() {
-        this.load.image('background', 'public/assets/background.png');
-        this.load.image('ball', "public/assets/ball_red_small.png");
-        this.load.image('leftPlayer', "public/assets/left_player.png");
-        this.load.image('rightPlayer', "public/assets/right_player.png");
-        this.load.image('playerBigger', "public/assets/player_bigger.png");
-        this.load.image('playerSmaller', "public/assets/player_smaller.png");
-        this.load.image('ballBigger', "public/assets/ball_bigger.png");
-        this.load.image('ballSmaller', "public/assets/ball_smaller.png");
-        this.load.audio('ping', "assets/audio/ping.mp3");
-        this.load.audio('backgroundMusic', "assets/audio/background_music.mp3");
-    }
-
     create() {
         this.add.image(0,0,'background').setOrigin(0, 0);
         this.leftPlayer = this.physics.add.image(LEFT_PLAYER_X, this.scale.height / 2, 'leftPlayer').setScale(0.5);
