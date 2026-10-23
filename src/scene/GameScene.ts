@@ -1,5 +1,17 @@
 import Phaser from "phaser";
-import { PLAYER_SPEED_Y, LEFT_PLAYER_X, RIGHT_PLAYER_X, TIME_EVENT_COUNTDOWN, BALL_SPEED_FACTOR } from "../constants/game";
+import { 
+    PLAYER_SPEED_Y, 
+    LEFT_PLAYER_X, 
+    RIGHT_PLAYER_X, 
+    TIME_EVENT_COUNTDOWN, 
+    BALL_SPEED_FACTOR,
+    BALL_MAX_SCALE, 
+    BALL_MIN_SCALE,
+    PLAYER_MAX_SCALE,
+    PLAYER_MIN_SCALE,
+    BIGGER_FACTOR,
+    SMALLER_FACTOR
+} from "../constants/game";
 
 export class GameScene extends Phaser.Scene {
     private leftPlayer!: Phaser.Physics.Arcade.Image;
@@ -151,7 +163,7 @@ export class GameScene extends Phaser.Scene {
             this.serveBall();
         } 
         this.eventText.setText('Next Event: ' + this.countDown.toString(TIME_EVENT_COUNTDOWN) + '\n' + this.eventName);
-        
+
         this.movePlayer(
             this.leftPlayer,
             this.controls.leftPlayer
@@ -234,40 +246,31 @@ export class GameScene extends Phaser.Scene {
 
     private handlePowerUpBallCollission: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback =
         (_powerUp, ballObj) => {
-            const biggerFactor = 1.2;
-            const smallerFactor = 0.8;
 
             const powerUp = _powerUp as Phaser.Physics.Arcade.Image;
             const ball = ballObj as Phaser.Physics.Arcade.Image;
 
             if (powerUp.texture.key === 'playerBigger') {
-                if (this.lastContact) {
-                    this.lastContact.setScale(
-                        // this.lastContact.scaleX * biggerFactor,
-                        this.lastContact.scaleY * biggerFactor
-                    );
+                if (this.lastContact ) {
+                    this.applyScale(this.lastContact, BIGGER_FACTOR, PLAYER_MIN_SCALE, PLAYER_MAX_SCALE);
                 }
             } else if (powerUp.texture.key === 'playerSmaller') {
                 if (this.penultimateContact) {
-                    this.penultimateContact.setScale(
-                        // this.penultimateContact.scaleX * smallerFactor,
-                        this.penultimateContact.scaleY * smallerFactor
-                    );
+                    this.applyScale(this.penultimateContact, SMALLER_FACTOR, PLAYER_MIN_SCALE, PLAYER_MAX_SCALE);
                 }
-            } else if (powerUp.texture.key === 'ballBigger') {
-                ball.setScale(
-                    ball.scaleX * biggerFactor,
-                    ball.scaleY * biggerFactor
-                );
+            } else if (powerUp.texture.key === 'ballBigger' ) {
+                this.applyScale(ball, BIGGER_FACTOR, BALL_MIN_SCALE, BALL_MAX_SCALE);
             } else if (powerUp.texture.key === 'ballSmaller') {
-                ball.setScale(
-                    ball.scaleX * smallerFactor,
-                    ball.scaleY * smallerFactor
-                );
+                this.applyScale(ball, SMALLER_FACTOR, BALL_MIN_SCALE, BALL_MAX_SCALE);
             }
 
             powerUp.destroy();
         };
+
+    private applyScale(target: Phaser.GameObjects.Image, factor: number, min: number, max: number) {
+        const nextScale = Phaser.Math.Clamp(target.scaleY * factor, min, max);
+        target.setScale(nextScale);
+    }
 
     private resetBall() {
         this.ball.setVelocity(0);
