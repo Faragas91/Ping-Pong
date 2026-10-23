@@ -1,7 +1,4 @@
-import Phaser from "phaser";
-
-export const BALL_SPEED_X = Phaser.Math.Between(-800, 800);
-export const BALL_SPEED_Y = Phaser.Math.Between(-300, 300);
+export const BALL_SPEED_FACTOR = 1.01;
 
 export const PLAYER_SPEED_Y = 500;
 export const LEFT_PLAYER_X = 70;

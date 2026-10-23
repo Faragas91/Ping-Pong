@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { PLAYER_SPEED_Y, LEFT_PLAYER_X, RIGHT_PLAYER_X, TIME_EVENT_COUNTDOWN } from "../constants/game";
+import { PLAYER_SPEED_Y, LEFT_PLAYER_X, RIGHT_PLAYER_X, TIME_EVENT_COUNTDOWN, BALL_SPEED_FACTOR } from "../constants/game";
 
 export class GameScene extends Phaser.Scene {
     private leftPlayer!: Phaser.Physics.Arcade.Image;
@@ -208,14 +208,29 @@ export class GameScene extends Phaser.Scene {
             const player = _player as Phaser.Physics.Arcade.Image;
             const ball = ballObj as Phaser.Physics.Arcade.Image;
             this.penultimateContact = this.lastContact;
-            this.lastContact = player
-            ball.setBounce(1);
+            this.lastContact = player;
+
             this.sound.play("ping", {
                 loop: false,
                 volume: 0.3
             });
-            this.handleBallSpeed(1.01);
+
+            this.handleReboundBallFromPlayer(ball, player);
         };
+
+    private handleReboundBallFromPlayer(ball: Phaser.Physics.Arcade.Image, player: Phaser.Physics.Arcade.Image) {
+        const hitboxOffset = Phaser.Math.Clamp((ball.y - player.y) / (player.displayHeight / 2), -1, 1);
+        const maxAngle = Phaser.Math.DegToRad(60);
+        const jitter = Phaser.Math.DegToRad(Phaser.Math.Between(-5, 5));
+        const angle = hitboxOffset * maxAngle + jitter;
+        const speed = this.ball.body!.velocity.length() * BALL_SPEED_FACTOR;
+        const direction = player === this.leftPlayer ? 1 : -1;
+
+        ball.setVelocity(
+            Math.cos(angle) * speed * direction,
+            Math.sin(angle) * speed
+        )
+    }
 
     private handlePowerUpBallCollission: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback =
         (_powerUp, ballObj) => {
